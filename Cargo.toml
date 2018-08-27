@@ -61,6 +61,10 @@ version = "1"
 optional = true
 version = "0.8"
 
+[dependencies.term_unicode]
+version = "0.1"
+git = "https://github.com/Emerentius/term_unicode"
+
 [dependencies.toml]
 optional = true
 version = "0.4"

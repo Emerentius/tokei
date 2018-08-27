@@ -6,6 +6,7 @@
 extern crate env_logger;
 extern crate log;
 extern crate term_size;
+extern crate term_unicode;
 extern crate tokei;
 
 mod input;
@@ -195,12 +196,21 @@ fn main() -> Result<(), Box<Error>> {
         Some((columns, _)) => columns.max(FALLBACK_ROW_LEN),
         None => FALLBACK_ROW_LEN,
     };
-    let row = "-".repeat(columns);
+    let outer_row;
+    let inner_row;
+
+    if term_unicode::supports_single_width_chars()? {
+        outer_row = "━".repeat(columns);
+        inner_row = "─".repeat(columns);
+    } else {
+        outer_row = "-".repeat(columns);
+        inner_row = outer_row.clone();
+    }
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 
-    writeln!(stdout, "{}", row)?;
+    writeln!(stdout, "{}", outer_row)?;
     writeln!(stdout, " {:<6$} {:>12} {:>12} {:>12} {:>12} {:>12}",
                 "Language",
                 "Files",
@@ -209,7 +219,7 @@ fn main() -> Result<(), Box<Error>> {
                 "Comments",
                 "Blanks",
                 columns - NO_LANG_HEADER_ROW_LEN)?;
-    writeln!(stdout, "{}", row)?;
+    writeln!(stdout, "{}", inner_row)?;
 
     if let Some(sort_category) = sort_category {
         for (_, ref mut language) in &mut languages {
@@ -226,14 +236,14 @@ fn main() -> Result<(), Box<Error>> {
             Sort::Lines => languages.sort_by(|a, b| b.1.lines.cmp(&a.1.lines)),
         }
 
-        print_results(&mut stdout, &row, languages.into_iter(), files_option)?
+        print_results(&mut stdout, &inner_row, columns, languages.into_iter(), files_option)?
     } else  {
-        print_results(&mut stdout, &row, languages.iter(), files_option)?
+        print_results(&mut stdout, &inner_row, columns, languages.iter(), files_option)?
     }
 
     // If we're listing files there's already a trailing row so we don't want an extra one.
     if !files_option {
-        writeln!(stdout, "{}", row)?;
+        writeln!(stdout, "{}", inner_row)?;
     }
 
     let mut total = Language::new();
@@ -243,18 +253,18 @@ fn main() -> Result<(), Box<Error>> {
     }
 
     print_language(&mut stdout, columns - NO_LANG_ROW_LEN, &total, "Total")?;
-    writeln!(stdout, "{}", row)?;
+    writeln!(stdout, "{}", outer_row)?;
 
     Ok(())
 }
 
-fn print_results<'a, I, W>(sink: &mut W, row: &str, languages: I, list_files: bool)
+fn print_results<'a, I, W>(sink: &mut W, row: &str, columns: usize, languages: I, list_files: bool)
     -> io::Result<()>
     where I: Iterator<Item = (&'a LanguageType, &'a Language)>,
           W: Write,
 {
-    let path_len = row.len() - NO_LANG_ROW_LEN_NO_SPACES;
-    let lang_section_len = row.len() - NO_LANG_ROW_LEN;
+    let path_len = columns - NO_LANG_ROW_LEN_NO_SPACES;
+    let lang_section_len = columns - NO_LANG_ROW_LEN;
     for (name, language) in languages.filter(isnt_empty) {
         print_language(sink, lang_section_len, language, name.name())?;
 
