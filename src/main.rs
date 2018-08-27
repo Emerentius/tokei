@@ -199,7 +199,7 @@ fn main() -> Result<(), Box<Error>> {
     let outer_row;
     let inner_row;
 
-    if term_unicode::supports_single_width_chars()? {
+    if should_use_unicode() {
         outer_row = "━".repeat(columns);
         inner_row = "─".repeat(columns);
     } else {
@@ -300,4 +300,15 @@ fn print_language<W>(sink: &mut W,
              language.comments,
              language.blanks,
              len = lang_section_len)
+}
+
+fn should_use_unicode() -> bool {
+    // if the locale explicitly asks for UTF-8, we should give it to the
+    // user regardless of whether we can ascertain their other tools support it
+    //
+    // works properly, even when stdout is redirected
+    term_unicode::locale_requests_utf8()
+        // Test printing and reading cursor position doesn't work in pipes
+        // don't error out, just switch to conservative ASCII
+        || term_unicode::supports_single_width_chars().unwrap_or(false)
 }
